@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isStaff() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['department_officer', 'admin'];
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'citizen';
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role;
+    }
+
+    match /reports/{reportId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'Pending';
+      allow update: if isStaff()
+        && request.resource.data.status in ['Pending', 'Dispatched', 'In Progress', 'Resolved', 'Rejected'];
+      allow delete: if false;
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if false;
+    }
+  }
+}

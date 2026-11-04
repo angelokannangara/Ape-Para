@@ -1,55 +1,64 @@
+/// Project setup and deployment guide for Ape Para.
 # Ape Para
 
-A mobile app for reporting community issues in Sri Lanka and following their progress.
+Ape Para is a mobile-first civic reporting platform for Sri Lanka that lets citizens submit photo, location, and issue details and route reports to the appropriate authority.
 
-## Run the demo
+## Firebase setup in 6 steps
+
+1. Create a Firebase project.
+2. Enable Email/Password in Authentication.
+3. Create Firestore Database and apply `firestore.rules`.
+4. Enable Firebase Storage and apply `storage.rules`.
+5. Run `flutterfire configure` locally and generate Firebase web configuration values.
+6. Deploy the rules and indexes with Firebase CLI when your project is ready.
+
+## Run locally
 
 ```powershell
 flutter pub get
-flutter run
+Copy-Item dart_defines.example.json dart_defines.json
+flutter run -d chrome --dart-define-from-file=dart_defines.json
 ```
 
-The app runs with its built-in demo login and data when no backend credentials are configured.
+Fill all seven Firebase values in `dart_defines.json`. This file is ignored by Git.
 
-## Connect Supabase
+## Deploy to GitHub Pages
 
-Pass the Supabase project URL and publishable/anonymous key at startup:
+1. Create a GitHub repository and push the project to `main`.
+2. Add all seven Firebase values under Repository Settings > Secrets and variables > Actions.
+3. Enable GitHub Pages with Source: GitHub Actions.
+4. Confirm the workflow base-href uses `/<repository-name>/`.
+5. Push to `main` to build and publish the static site.
 
-```powershell
-flutter run `
-  --dart-define=SUPABASE_URL=https://your-project.supabase.co `
-  --dart-define=SUPABASE_ANON_KEY=your-publishable-key
-```
+## What this costs
 
-Google sign-in also requires a Google web client ID:
+| Firebase resource | Pilot budget | Firebase Spark allowance |
+|---|---:|---:|
+| Firestore reads/writes | Suitable for about 1,000 reports/month | 50,000 reads and 20,000 writes per day |
+| Storage | 5 to 10 GB available free | 5 GB stored |
+| Storage downloads | Usually under 1 GB/month at pilot scale | 1 GB/day |
+| Authentication | Included in Spark pilot usage | No monthly user-charge |
+| Hosting | GitHub Pages | LKR 0 |
 
-```powershell
-flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=your-client-id.apps.googleusercontent.com
-```
+Total expected pilot cost: **LKR 0**.
 
-Enable **Phone** and **Google** under Supabase Authentication > Sign In / Providers.
-Phone login requires an SMS provider such as Twilio in the Supabase dashboard.
+## Known limitations
 
-For Android Google sign-in, register both:
+- The Spark plan has no Cloud Functions, so reports are not emailed automatically. Officers copy dispatch details from the dashboard.
+- Push notifications are not implemented.
+- Jurisdiction routing is performed in the browser and depends on the approximate seeded polygons.
+- Officer role checks require one profile read per dashboard session.
+- CanvasKit uses roughly 2 MB or more on first load.
+- The public OpenStreetMap tile service may be unavailable or slow and the map degrades to a loading/error state.
 
-- the Android SHA-1 certificate fingerprint
-- the same Web OAuth client ID passed above
+## Build flags
 
-Restart the app after changing `--dart-define` values.
+CanvasKit is used for consistent Sinhala rendering across Chrome, Safari, and Firefox. HTML renderer text shaping can be inconsistent. The trade-off is a larger initial application download.
 
-## Configure Google Maps
+## Boundaries
 
-Add the Android Maps SDK key to `android/local.properties`:
+The four jurisdiction polygons in `lib/services/jurisdictions.dart` are approximate placeholders. Supply vetted boundaries before production routing.
 
-```properties
-googleMapsApiKey=YOUR_GOOGLE_MAPS_API_KEY
-```
+## Assets
 
-Or pass it when running Android:
-
-```powershell
-flutter run -PgoogleMapsApiKey=YOUR_GOOGLE_MAPS_API_KEY
-```
-
-Enable **Maps SDK for Android** in Google Cloud and restrict the key to:
-`com.example.ape_para`. For a release build, also allow the release SHA-1 certificate.
+`.nojekyll` prevents GitHub Pages from stripping Flutter asset directories such as `assets/` and `canvaskit/`.
