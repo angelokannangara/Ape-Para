@@ -1,9 +1,8 @@
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_gate.dart';
@@ -604,10 +603,33 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
+  Future<void> _selectLocationOnMap() async {
+    final selected = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(initialPosition: _position),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _position = Position(
+        latitude: selected.latitude,
+        longitude: selected.longitude,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final canSubmit = _category != null && _hasPhoto;
+    final canSubmit = _category != null && _hasPhoto && _position != null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Report a problem')),
@@ -698,6 +720,10 @@ class _ReportScreenState extends State<ReportScreen> {
                 TextButton(
                   onPressed: _findingLocation ? null : _useCurrentLocation,
                   child: Text(_findingLocation ? 'Finding...' : 'Use location'),
+                ),
+                TextButton(
+                  onPressed: _selectLocationOnMap,
+                  child: const Text('Choose on map'),
                 ),
               ],
             ),
@@ -799,44 +825,109 @@ class _CategoryTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Map and profile (stubs to build out next)
 // ---------------------------------------------------------------------------
+class LocationPickerScreen extends StatefulWidget {
+  const LocationPickerScreen({super.key, this.initialPosition});
+
+  final Position? initialPosition;
+
+  @override
+  State<LocationPickerScreen> createState() => _LocationPickerScreenState();
+}
+
+class _LocationPickerScreenState extends State<LocationPickerScreen> {
+  late LatLng _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialPosition == null
+        ? const LatLng(7.2083, 79.8358)
+        : LatLng(
+            widget.initialPosition!.latitude,
+            widget.initialPosition!.longitude,
+          );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Select the problem location')),
+      body: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: _selected, zoom: 15),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            onTap: (position) => setState(() => _selected = position),
+            markers: {
+              Marker(
+                markerId: const MarkerId('selected-location'),
+                position: _selected,
+              ),
+            },
+          ),
+          const Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: IgnorePointer(
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'Tap anywhere on the map to select the location.',
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.pop(context, _selected),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Use this location'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final markers = <Marker>[
+    final markers = <Marker>{
       Marker(
-        point: const LatLng(7.2083, 79.8358),
-        width: 40,
-        height: 40,
-        child: const Icon(Icons.location_pin, size: 40, color: Colors.blue),
+        markerId: const MarkerId('forwarded'),
+        position: const LatLng(7.2083, 79.8358),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       ),
       Marker(
-        point: const LatLng(7.2115, 79.8410),
-        width: 40,
-        height: 40,
-        child: const Icon(Icons.location_pin, size: 40, color: Colors.orange),
+        markerId: const MarkerId('progress'),
+        position: const LatLng(7.2115, 79.8410),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
       ),
       Marker(
-        point: const LatLng(7.2030, 79.8314),
-        width: 40,
-        height: 40,
-        child: const Icon(Icons.location_pin, size: 40, color: Colors.green),
+        markerId: const MarkerId('resolved'),
+        position: const LatLng(7.2030, 79.8314),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       ),
-    ];
+    };
 
-    return FlutterMap(
-      options: const MapOptions(
-        initialCenter: LatLng(7.2083, 79.8358),
-        initialZoom: 14,
+    return GoogleMap(
+      initialCameraPosition: const CameraPosition(
+        target: LatLng(7.2083, 79.8358),
+        zoom: 14,
       ),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.example.ape_para',
-        ),
-        MarkerLayer(markers: markers),
-      ],
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
+      markers: markers,
     );
   }
 }

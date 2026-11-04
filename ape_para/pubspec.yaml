@@ -34,7 +34,7 @@ dependencies:
   # Next steps
   image_picker: ^1.1.2        # camera / gallery
   geolocator: ^13.0.1         # GPS
-  flutter_map: ^7.0.2         # OpenStreetMap map, no API key needed
+  google_maps_flutter: ^2.13.1
   latlong2: ^0.9.1
   supabase_flutter: ^2.8.0    # auth (phone OTP), database, storage
   flutter_localizations:      # Sinhala / Tamil / English
@@ -100,4 +100,3 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 # Add these under `dependencies:` in your pubspec.yaml, then run `flutter pub get`.
 # The starter UI only needs google_fonts. The rest are what you'll add next.
-

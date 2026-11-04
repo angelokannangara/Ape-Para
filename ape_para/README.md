@@ -36,3 +36,20 @@ For Android Google sign-in, register both:
 - the same Web OAuth client ID passed above
 
 Restart the app after changing `--dart-define` values.
+
+## Configure Google Maps
+
+Add the Android Maps SDK key to `android/local.properties`:
+
+```properties
+googleMapsApiKey=YOUR_GOOGLE_MAPS_API_KEY
+```
+
+Or pass it when running Android:
+
+```powershell
+flutter run -PgoogleMapsApiKey=YOUR_GOOGLE_MAPS_API_KEY
+```
+
+Enable **Maps SDK for Android** in Google Cloud and restrict the key to:
+`com.example.ape_para`. For a release build, also allow the release SHA-1 certificate.
