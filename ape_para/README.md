@@ -26,3 +26,13 @@ Google sign-in also requires a Google web client ID:
 ```powershell
 flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=your-client-id.apps.googleusercontent.com
 ```
+
+Enable **Phone** and **Google** under Supabase Authentication > Sign In / Providers.
+Phone login requires an SMS provider such as Twilio in the Supabase dashboard.
+
+For Android Google sign-in, register both:
+
+- the Android SHA-1 certificate fingerprint
+- the same Web OAuth client ID passed above
+
+Restart the app after changing `--dart-define` values.

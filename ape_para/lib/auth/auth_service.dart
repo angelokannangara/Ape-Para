@@ -11,6 +11,11 @@ class AuthService {
 
   Future<void> _ensureGoogle() async {
     if (_googleReady) return;
+    if (_webClientId.isEmpty) {
+      throw const AuthException(
+        'Google sign-in is not configured. Set GOOGLE_WEB_CLIENT_ID.',
+      );
+    }
     await GoogleSignIn.instance.initialize(serverClientId: _webClientId);
     _googleReady = true;
   }

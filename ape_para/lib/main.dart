@@ -1,8 +1,13 @@
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth/auth_gate.dart';
+import 'auth/auth_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -196,14 +201,14 @@ const sampleReports = <Report>[
 // ---------------------------------------------------------------------------
 // Login: phone number then OTP
 // ---------------------------------------------------------------------------
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class DemoLoginScreen extends StatefulWidget {
+  const DemoLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<DemoLoginScreen> createState() => _DemoLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _DemoLoginScreenState extends State<DemoLoginScreen> {
   final _phone = TextEditingController();
   final _otp = TextEditingController();
   bool _codeSent = false;
@@ -217,9 +222,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _continue() {
     if (!_codeSent) {
-      setState(() => _codeSent = true); // TODO: request OTP from backend
+      setState(() => _codeSent = true);
     } else {
-      // TODO: verify OTP with backend
       Navigator.of(
         context,
       ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
@@ -530,11 +534,74 @@ class _ReportScreenState extends State<ReportScreen> {
   IssueCategory? _category;
   final _details = TextEditingController();
   bool _hasPhoto = false;
+  final _imagePicker = ImagePicker();
+  Position? _position;
+  bool _findingLocation = false;
 
   @override
   void dispose() {
     _details.dispose();
     super.dispose();
+  }
+
+  Future<void> _addPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final photo = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (!mounted || photo == null) return;
+    setState(() => _hasPhoto = true);
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _findingLocation = true);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw const LocationServiceDisabledException();
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission denied');
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+      if (mounted) setState(() => _position = position);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _findingLocation = false);
+    }
   }
 
   @override
@@ -574,8 +641,7 @@ class _ReportScreenState extends State<ReportScreen> {
           ),
           const SizedBox(height: 12),
           InkWell(
-            // TODO: image_picker (camera), then read EXIF / device time
-            onTap: () => setState(() => _hasPhoto = !_hasPhoto),
+            onTap: _addPhoto,
             borderRadius: BorderRadius.circular(14),
             child: Container(
               height: 140,
@@ -621,13 +687,18 @@ class _ReportScreenState extends State<ReportScreen> {
               children: [
                 const Icon(Icons.my_location, color: AppColors.ink),
                 const SizedBox(width: 12),
-                const Expanded(
-                  // TODO: geolocator + reverse geocoding
+                Expanded(
                   child: Text(
-                    'Using your current location\nColombo Road, Negombo',
+                    _position == null
+                        ? 'Location not added yet'
+                        : '${_position!.latitude.toStringAsFixed(5)}, '
+                              '${_position!.longitude.toStringAsFixed(5)}',
                   ),
                 ),
-                TextButton(onPressed: () {}, child: const Text('Change')),
+                TextButton(
+                  onPressed: _findingLocation ? null : _useCurrentLocation,
+                  child: Text(_findingLocation ? 'Finding...' : 'Use location'),
+                ),
               ],
             ),
           ),
@@ -733,16 +804,39 @@ class MapScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: flutter_map (OpenStreetMap) with a marker per report,
-    // coloured by status, and tap to open the report.
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(32),
-        child: Text(
-          'Public map of reports goes here.',
-          textAlign: TextAlign.center,
-        ),
+    final markers = <Marker>[
+      Marker(
+        point: const LatLng(7.2083, 79.8358),
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_pin, size: 40, color: Colors.blue),
       ),
+      Marker(
+        point: const LatLng(7.2115, 79.8410),
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_pin, size: 40, color: Colors.orange),
+      ),
+      Marker(
+        point: const LatLng(7.2030, 79.8314),
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.location_pin, size: 40, color: Colors.green),
+      ),
+    ];
+
+    return FlutterMap(
+      options: const MapOptions(
+        initialCenter: LatLng(7.2083, 79.8358),
+        initialZoom: 14,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.ape_para',
+        ),
+        MarkerLayer(markers: markers),
+      ],
     );
   }
 }
@@ -756,6 +850,39 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String _lang = 'en';
+
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('You will need to sign in again to report issues.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await AuthService().signOut();
+    } catch (_) {
+      // Demo mode and already signed-out Supabase sessions can both reach here.
+    }
+
+    if (!mounted || AuthGate.isConfigured) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const DemoLoginScreen()),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -784,7 +911,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           leading: Icon(Icons.notifications_none),
           title: Text('Notifications'),
         ),
-        const ListTile(leading: Icon(Icons.logout), title: Text('Sign out')),
+        ListTile(
+          leading: const Icon(Icons.logout),
+          title: const Text('Sign out'),
+          onTap: _signOut,
+        ),
       ],
     );
   }

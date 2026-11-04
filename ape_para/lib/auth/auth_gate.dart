@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../main.dart' hide LoginScreen;
+import '../main.dart';
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -16,7 +16,7 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isConfigured) {
-      return const LoginScreen();
+      return const DemoLoginScreen();
     }
 
     return StreamBuilder<AuthState>(
