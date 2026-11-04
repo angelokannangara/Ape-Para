@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() => runApp(const ApeParaApp());
+import 'auth/auth_gate.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
+    await Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabaseAnonKey,
+    );
+  }
+
+  runApp(const ApeParaApp());
+}
 
 // ---------------------------------------------------------------------------
 // Design tokens
@@ -53,7 +69,7 @@ class ApeParaApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const AuthGate(),
     );
   }
 }
@@ -61,54 +77,61 @@ class ApeParaApp extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Models (mock data; replace with your backend)
 // ---------------------------------------------------------------------------
-enum IssueCategory { pothole, streetLight, drainage, waterSupply, garbage, other }
+enum IssueCategory {
+  pothole,
+  streetLight,
+  drainage,
+  waterSupply,
+  garbage,
+  other,
+}
 
 extension IssueCategoryInfo on IssueCategory {
   String get label => switch (this) {
-        IssueCategory.pothole => 'Pothole',
-        IssueCategory.streetLight => 'Street light',
-        IssueCategory.drainage => 'Drainage',
-        IssueCategory.waterSupply => 'Water supply',
-        IssueCategory.garbage => 'Garbage',
-        IssueCategory.other => 'Other',
-      };
+    IssueCategory.pothole => 'Pothole',
+    IssueCategory.streetLight => 'Street light',
+    IssueCategory.drainage => 'Drainage',
+    IssueCategory.waterSupply => 'Water supply',
+    IssueCategory.garbage => 'Garbage',
+    IssueCategory.other => 'Other',
+  };
 
   IconData get icon => switch (this) {
-        IssueCategory.pothole => Icons.add_road,
-        IssueCategory.streetLight => Icons.lightbulb_outline,
-        IssueCategory.drainage => Icons.water_drop_outlined,
-        IssueCategory.waterSupply => Icons.plumbing,
-        IssueCategory.garbage => Icons.delete_outline,
-        IssueCategory.other => Icons.report_problem_outlined,
-      };
+    IssueCategory.pothole => Icons.add_road,
+    IssueCategory.streetLight => Icons.lightbulb_outline,
+    IssueCategory.drainage => Icons.water_drop_outlined,
+    IssueCategory.waterSupply => Icons.plumbing,
+    IssueCategory.garbage => Icons.delete_outline,
+    IssueCategory.other => Icons.report_problem_outlined,
+  };
 
   /// Placeholder for the real routing logic (GPS -> council boundary + category).
   String get authority => switch (this) {
-        IssueCategory.pothole => 'Local council or RDA',
-        IssueCategory.streetLight => 'Local council',
-        IssueCategory.drainage => 'Local council',
-        IssueCategory.waterSupply => 'NWSDB',
-        IssueCategory.garbage => 'Local council',
-        IssueCategory.other => 'Local council',
-      };
+    IssueCategory.pothole => 'Local council or RDA',
+    IssueCategory.streetLight => 'Local council',
+    IssueCategory.drainage => 'Local council',
+    IssueCategory.waterSupply => 'NWSDB',
+    IssueCategory.garbage => 'Local council',
+    IssueCategory.other => 'Local council',
+  };
 }
 
 enum ReportStatus { submitted, forwarded, inProgress, resolved }
 
 extension ReportStatusInfo on ReportStatus {
   String get label => switch (this) {
-        ReportStatus.submitted => 'Submitted',
-        ReportStatus.forwarded => 'Forwarded',
-        ReportStatus.inProgress => 'In progress',
-        ReportStatus.resolved => 'Resolved',
-      };
+    ReportStatus.submitted => 'Submitted',
+    ReportStatus.forwarded => 'Forwarded',
+    ReportStatus.inProgress => 'In progress',
+    ReportStatus.resolved => 'Resolved',
+  };
 
   Color get color => switch (this) {
-        ReportStatus.submitted => AppColors.submitted,
-        ReportStatus.forwarded => AppColors.forwarded,
-        ReportStatus.inProgress => AppColors.inProgress,
-        ReportStatus.resolved => AppColors.resolved,
-      };
+    ReportStatus.submitted => AppColors.submitted,
+    ReportStatus.forwarded => AppColors.forwarded,
+    ReportStatus.inProgress => AppColors.inProgress,
+    ReportStatus.resolved => AppColors.resolved,
+  };
 }
 
 class Report {
@@ -197,9 +220,9 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _codeSent = true); // TODO: request OTP from backend
     } else {
       // TODO: verify OTP with backend
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeShell()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
     }
   }
 
@@ -223,12 +246,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Ape Para',
-                  style: text.displaySmall?.copyWith(
-                      color: AppColors.ink, fontWeight: FontWeight.w700)),
+              Text(
+                'Ape Para',
+                style: text.displaySmall?.copyWith(
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('Report a problem on your road. We send it to the right office.',
-                  style: text.bodyLarge),
+              Text(
+                'Report a problem on your road. We send it to the right office.',
+                style: text.bodyLarge,
+              ),
               const SizedBox(height: 32),
               TextField(
                 controller: _phone,
@@ -299,14 +328,18 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     const pages = [FeedScreen(), MapScreen(), ProfileScreen()];
     return Scaffold(
-      body: SafeArea(child: IndexedStack(index: _index, children: pages)),
+      body: SafeArea(
+        child: IndexedStack(index: _index, children: pages),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openReportFlow,
         backgroundColor: AppColors.roadYellow,
         foregroundColor: AppColors.ink,
         icon: const Icon(Icons.add_a_photo_outlined),
-        label: const Text('Report a problem',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        label: const Text(
+          'Report a problem',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -343,11 +376,11 @@ class _FeedScreenState extends State<FeedScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
-        Text('Near you',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink)),
+        Text(
+          'Near you',
+          style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink),
+        ),
         const SizedBox(height: 12),
         SizedBox(
           height: 40,
@@ -380,7 +413,10 @@ class _FeedScreenState extends State<FeedScreen> {
           const Padding(
             padding: EdgeInsets.all(32),
             child: Center(
-                child: Text('No reports in this category yet. Be the first to report one.')),
+              child: Text(
+                'No reports in this category yet. Be the first to report one.',
+              ),
+            ),
           ),
         for (final r in reports) ReportCard(report: r),
       ],
@@ -429,31 +465,42 @@ class _ReportCardState extends State<ReportCard> {
                         Icon(r.category.icon, size: 20, color: AppColors.ink),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(r.title,
-                              style: text.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700)),
+                          child: Text(
+                            r.title,
+                            style: text.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text('${r.place}  •  ${r.daysAgo}d ago',
-                        style: text.bodyMedium),
+                    Text(
+                      '${r.place}  •  ${r.daysAgo}d ago',
+                      style: text.bodyMedium,
+                    ),
                     const SizedBox(height: 4),
                     Text('Sent to: ${r.sentTo}', style: text.bodySmall),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Text(r.status.label,
-                            style: text.labelLarge?.copyWith(
-                                color: r.status.color,
-                                fontWeight: FontWeight.w700)),
+                        Text(
+                          r.status.label,
+                          style: text.labelLarge?.copyWith(
+                            color: r.status.color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         const Spacer(),
                         OutlinedButton.icon(
                           onPressed: () =>
                               setState(() => _supported = !_supported),
                           icon: Icon(
-                              _supported ? Icons.thumb_up : Icons.thumb_up_outlined,
-                              size: 16),
+                            _supported
+                                ? Icons.thumb_up
+                                : Icons.thumb_up_outlined,
+                            size: 16,
+                          ),
                           label: Text('I have this too  $count'),
                         ),
                       ],
@@ -500,8 +547,10 @@ class _ReportScreenState extends State<ReportScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('What is the problem?',
-              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'What is the problem?',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
           GridView.count(
             crossAxisCount: 3,
@@ -519,8 +568,10 @@ class _ReportScreenState extends State<ReportScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          Text('Add a photo',
-              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'Add a photo',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
           InkWell(
             // TODO: image_picker (camera), then read EXIF / device time
@@ -541,11 +592,12 @@ class _ReportScreenState extends State<ReportScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                        _hasPhoto
-                            ? Icons.check_circle_outline
-                            : Icons.camera_alt_outlined,
-                        size: 32,
-                        color: _hasPhoto ? AppColors.resolved : AppColors.ink),
+                      _hasPhoto
+                          ? Icons.check_circle_outline
+                          : Icons.camera_alt_outlined,
+                      size: 32,
+                      color: _hasPhoto ? AppColors.resolved : AppColors.ink,
+                    ),
                     const SizedBox(height: 8),
                     Text(_hasPhoto ? 'Photo added' : 'Take or choose a photo'),
                   ],
@@ -554,8 +606,10 @@ class _ReportScreenState extends State<ReportScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          Text('Where is it?',
-              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'Where is it?',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
@@ -569,15 +623,19 @@ class _ReportScreenState extends State<ReportScreen> {
                 const SizedBox(width: 12),
                 const Expanded(
                   // TODO: geolocator + reverse geocoding
-                  child: Text('Using your current location\nColombo Road, Negombo'),
+                  child: Text(
+                    'Using your current location\nColombo Road, Negombo',
+                  ),
                 ),
                 TextButton(onPressed: () {}, child: const Text('Change')),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          Text('Details (optional)',
-              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'Details (optional)',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _details,
@@ -595,21 +653,26 @@ class _ReportScreenState extends State<ReportScreen> {
               children: [
                 const Icon(Icons.send_outlined, size: 18),
                 const SizedBox(width: 8),
-                Expanded(child: Text('This will be sent to: ${_category!.authority}')),
+                Expanded(
+                  child: Text('This will be sent to: ${_category!.authority}'),
+                ),
               ],
             ),
           ],
           const SizedBox(height: 24),
           FilledButton(
-            onPressed:
-                canSubmit ? () => Navigator.of(context).pop(_category) : null,
+            onPressed: canSubmit
+                ? () => Navigator.of(context).pop(_category)
+                : null,
             child: const Text('Send report'),
           ),
           if (!canSubmit)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Choose a problem type and add a photo to send.',
-                  textAlign: TextAlign.center),
+              child: Text(
+                'Choose a problem type and add a photo to send.',
+                textAlign: TextAlign.center,
+              ),
             ),
         ],
       ),
@@ -641,15 +704,20 @@ class _CategoryTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(category.icon,
-                size: 30,
-                color: selected ? AppColors.roadYellow : AppColors.ink),
+            Icon(
+              category.icon,
+              size: 30,
+              color: selected ? AppColors.roadYellow : AppColors.ink,
+            ),
             const SizedBox(height: 8),
-            Text(category.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: selected ? Colors.white : AppColors.ink,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              category.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected ? Colors.white : AppColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -670,7 +738,10 @@ class MapScreen extends StatelessWidget {
     return const Center(
       child: Padding(
         padding: EdgeInsets.all(32),
-        child: Text('Public map of reports goes here.', textAlign: TextAlign.center),
+        child: Text(
+          'Public map of reports goes here.',
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }
@@ -691,11 +762,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Language',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          'Language',
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 12),
         SegmentedButton<String>(
           segments: const [
@@ -708,18 +779,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onSelectionChanged: (s) => setState(() => _lang = s.first),
         ),
         const SizedBox(height: 24),
-        const ListTile(
-          leading: Icon(Icons.history),
-          title: Text('My reports'),
-        ),
+        const ListTile(leading: Icon(Icons.history), title: Text('My reports')),
         const ListTile(
           leading: Icon(Icons.notifications_none),
           title: Text('Notifications'),
         ),
-        const ListTile(
-          leading: Icon(Icons.logout),
-          title: Text('Sign out'),
-        ),
+        const ListTile(leading: Icon(Icons.logout), title: Text('Sign out')),
       ],
     );
   }

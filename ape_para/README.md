@@ -1,17 +1,28 @@
-# ape_para
+# Ape Para
 
-A new Flutter project.
+A mobile app for reporting community issues in Sri Lanka and following their progress.
 
-## Getting Started
+## Run the demo
 
-This project is a starting point for a Flutter application.
+```powershell
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+The app runs with its built-in demo login and data when no backend credentials are configured.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Connect Supabase
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Pass the Supabase project URL and publishable/anonymous key at startup:
+
+```powershell
+flutter run `
+  --dart-define=SUPABASE_URL=https://your-project.supabase.co `
+  --dart-define=SUPABASE_ANON_KEY=your-publishable-key
+```
+
+Google sign-in also requires a Google web client ID:
+
+```powershell
+flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=your-client-id.apps.googleusercontent.com
+```
