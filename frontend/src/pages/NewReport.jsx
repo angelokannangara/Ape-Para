@@ -1,20 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapPicker from '../components/MapPicker.jsx';
-import { api } from '../lib/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { CATEGORIES, inSriLanka } from '../lib/constants.js';
+import { createReport, loadDepartments } from '../lib/db.js';
+import { friendlyError } from '../lib/errors.js';
+import { compressImage } from '../lib/image.js';
+import { routeReport } from '../lib/routing.js';
 
-const MAX_MB = 5;
+const MAX_MB = 10; // photos are shrunk in the browser before upload
 const fmt = (n) => n.toFixed(6);
 
 export default function NewReport() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [departments, setDepartments] = useState([]);
   const [form, setForm] = useState({ title: '', category: '', description: '' });
   const [coords, setCoords] = useState(null);
   const [text, setText] = useState({ lat: '', lng: '' });
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [route, setRoute] = useState(null); // routing preview from the backend
   const [error, setError] = useState('');
   const [geoMsg, setGeoMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,35 +64,27 @@ export default function NewReport() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // Show which authority will receive the report once category + location are known.
-  useEffect(() => {
-    if (!coords || !form.category) { setRoute(null); return undefined; }
-    let cancelled = false;
-    const t = setTimeout(() => {
-      api.resolveDepartment({ ...coords, category: form.category })
-        .then((r) => { if (!cancelled) setRoute(r); })
-        .catch(() => { if (!cancelled) setRoute(null); });
-    }, 300);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [coords, form.category]);
+  useEffect(() => { loadDepartments().then(setDepartments).catch(() => {}); }, []);
+
+  // Which authority will receive the report: same logic that runs on submit.
+  const route = useMemo(
+    () => (coords && form.category ? routeReport(departments, { ...coords, category: form.category }) : null),
+    [coords, form.category, departments],
+  );
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
     if (!form.category) return setError('Please choose a category.');
     if (!coords) return setError('Please pin the location on the map.');
-    const fd = new FormData();
-    fd.append('title', form.title);
-    fd.append('description', form.description);
-    fd.append('category', form.category);
-    fd.append('lat', coords.lat);
-    fd.append('lng', coords.lng);
-    if (file) fd.append('image', file);
     setBusy(true);
     try {
-      const { report } = await api.createReport(fd);
-      navigate('/', { state: { flash: `Report submitted${report.department ? ` and sent to ${report.department.name}` : ''}. Thank you!` } });
-    } catch (err) { setError(err.message); setBusy(false); }
+      const imageDataUrl = file ? await compressImage(file) : null;
+      const { department } = await createReport({
+        user, form, coords, imageDataUrl, routing: routeReport(departments, { ...coords, category: form.category }),
+      });
+      navigate('/', { state: { flash: `Report submitted${department ? ` and sent to ${department.name}` : ''}. Thank you!` } });
+    } catch (err) { setError(err.code ? friendlyError(err) : err.message); setBusy(false); }
   };
 
   return (
@@ -121,7 +118,7 @@ export default function NewReport() {
 
         <section className="card space-y-3" aria-labelledby="photo">
           <h2 id="photo" className="text-xl font-bold">2. Add a photo</h2>
-          <input ref={fileInput} id="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"
+          <input ref={fileInput} id="image" type="file" accept="image/jpeg,image/png,image/webp"
             onChange={onFile} className="sr-only" />
           <div className="flex flex-wrap items-center gap-3">
             <label htmlFor="image" className="btn btn-secondary cursor-pointer">📷 {file ? 'Change photo' : 'Take or choose a photo'}</label>

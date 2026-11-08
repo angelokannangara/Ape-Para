@@ -35,6 +35,7 @@ export default function Layout() {
                 {(user.role === 'citizen' || user.role === 'admin') && (
                   <NavLink to="/reports/new" className={navClass}>Report an issue</NavLink>
                 )}
+                {user.role === 'admin' && <NavLink to="/admin" className={navClass}>Admin</NavLink>}
                 <NotificationBell />
                 <span className="hidden text-sm text-saffron-300 sm:inline">{user.fullName || user.email}</span>
                 <button type="button" className="rounded-lg border border-white/40 px-3 py-2 text-base font-semibold hover:bg-white/10"

@@ -1,21 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../lib/api.js';
+import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { markNotificationsRead, subscribeNotifications } from '../lib/db.js';
 
 export default function NotificationBell() {
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
-  const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const unread = items.filter((n) => !n.read).length;
 
-  const load = useCallback(() => {
-    api.notifications().then((r) => { setItems(r.notifications); setUnread(r.unread); }).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 60_000); // light polling; swap for SSE/WebSocket later
-    return () => clearInterval(t);
-  }, [load]);
+  // Realtime: a status change made by a field worker appears here immediately.
+  useEffect(() => subscribeNotifications(user.id, setItems, () => {}), [user.id]);
 
   useEffect(() => {
     const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -28,9 +23,7 @@ export default function NotificationBell() {
   const toggle = () => {
     const next = !open;
     setOpen(next);
-    if (next && unread > 0) {
-      api.markNotificationsRead().then(() => setUnread(0)).catch(() => {});
-    }
+    if (next) markNotificationsRead(items).catch(() => {});
   };
 
   return (
@@ -57,9 +50,7 @@ export default function NotificationBell() {
               {items.map((n) => (
                 <li key={n.id} className={`px-3 py-2 text-sm ${n.read ? '' : 'bg-saffron-50'}`}>
                   <p>{n.message}</p>
-                  <time className="text-xs text-ink-700" dateTime={n.createdAt}>
-                    {new Date(n.createdAt).toLocaleString()}
-                  </time>
+                  <time className="text-xs text-ink-700" dateTime={n.createdAt}>{new Date(n.createdAt).toLocaleString()}</time>
                 </li>
               ))}
             </ul>

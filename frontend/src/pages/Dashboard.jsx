@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import ReportsMap from '../components/ReportsMap.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { api, imageUrl } from '../lib/api.js';
+import ReportImage from '../components/ReportImage.jsx';
+import { friendlyError } from '../lib/errors.js';
+import { loadDepartments, reassignReport, subscribeReports, updateStatus } from '../lib/db.js';
 import { STATUSES, categoryIcon, categoryLabel } from '../lib/constants.js';
 
 const TITLES = {
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const [reports, setReports] = useState([]);
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [flash, setFlash] = useState(location.state?.flash || '');
@@ -25,13 +28,20 @@ export default function Dashboard() {
   const canUpdate = user.role === 'field_worker' || user.role === 'admin';
   const [title, subtitle] = TITLES[user.role];
 
-  const load = useCallback(() => {
+  // Realtime subscription: new reports and status changes appear without refreshing.
+  useEffect(() => {
     setLoading(true);
-    api.listReports().then((r) => { setReports(r.reports); setError(''); })
-      .catch((e) => setError(e.message)).finally(() => setLoading(false));
-  }, []);
+    return subscribeReports(
+      user,
+      (list) => { setReports(list); setError(''); setLoading(false); },
+      (err) => { setError(friendlyError(err)); setLoading(false); },
+    );
+  }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (user.role === 'admin') loadDepartments().then(setDepartments).catch(() => {});
+  }, [user.role]);
+
   useEffect(() => { // clear router state so the flash doesn't reappear on refresh
     if (location.state?.flash) window.history.replaceState({}, '');
   }, [location.state]);
@@ -39,11 +49,13 @@ export default function Dashboard() {
   const visible = useMemo(() => (filter ? reports.filter((r) => r.status === filter) : reports), [reports, filter]);
   const counts = useMemo(() => Object.fromEntries(STATUSES.map((s) => [s.value, reports.filter((r) => r.status === s.value).length])), [reports]);
 
-  const changeStatus = async (id, status) => {
-    try {
-      const { report } = await api.updateStatus(id, status);
-      setReports((rs) => rs.map((r) => (r.id === id ? report : r)));
-    } catch (e) { setError(e.message); }
+  const run = async (fn) => {
+    try { await fn(); setError(''); } catch (e) { setError(friendlyError(e)); }
+  };
+  const changeStatus = (report, status) => run(() => updateStatus(report, status));
+  const reassign = (report, deptId) => {
+    const dept = departments.find((d) => d.id === deptId);
+    if (dept) run(() => reassignReport(report, dept));
   };
 
   return (
@@ -101,10 +113,7 @@ export default function Dashboard() {
           {visible.map((r) => (
             <li key={r.id} id={`report-${r.id}`}
               className={`card flex flex-col gap-4 sm:flex-row ${selectedId === r.id ? 'ring-4 ring-saffron-300' : ''}`}>
-              {r.imageUrl && (
-                <img src={imageUrl(r.imageUrl)} alt={`Photo for ${r.title}`} loading="lazy"
-                  className="h-40 w-full rounded-xl object-cover sm:h-28 sm:w-40" />
-              )}
+              {r.hasImage && <ReportImage reportId={r.id} alt={`Photo for ${r.title}`} />}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-lg font-bold">
@@ -123,11 +132,21 @@ export default function Dashboard() {
                 </button>
               </div>
               {canUpdate && (
-                <div className="sm:w-44">
+                <div className="sm:w-52">
                   <label htmlFor={`st-${r.id}`} className="label">Update status</label>
-                  <select id={`st-${r.id}`} className="input" value={r.status} onChange={(e) => changeStatus(r.id, e.target.value)}>
+                  <select id={`st-${r.id}`} className="input" value={r.status} onChange={(e) => changeStatus(r, e.target.value)}>
                     {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
+                  {user.role === 'admin' && departments.length > 0 && (
+                    <>
+                      <label htmlFor={`dp-${r.id}`} className="label mt-3">Assigned to</label>
+                      <select id={`dp-${r.id}`} className="input" value={r.department?.id ?? ''}
+                        onChange={(e) => reassign(r, e.target.value)}>
+                        {!r.department && <option value="">Unassigned</option>}
+                        {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                    </>
+                  )}
                 </div>
               )}
             </li>

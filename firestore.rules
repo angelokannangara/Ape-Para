@@ -1,0 +1,137 @@
+rules_version = '2';
+
+// Ape Para security rules. With no server (Firebase Spark plan), THESE RULES are the access control.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------ helpers
+    function signedIn() { return request.auth != null; }
+    function profilePath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasProfile() { return signedIn() && exists(profilePath()); }
+    function profile() { return get(profilePath()).data; }
+    function isAdmin() { return hasProfile() && profile().role == 'admin'; }
+    function isFieldWorker() { return hasProfile() && profile().role == 'field_worker'; }
+    function isStaff() { return isAdmin() || isFieldWorker(); }
+    function myDepartment() { return profile().departmentId; }
+    function departmentExists(id) { return exists(/databases/$(database)/documents/departments/$(id)); }
+    function validStatus(s) { return s in ['submitted', 'in_review', 'in_progress', 'resolved']; }
+
+    // -------------------------------------------------------------- users
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();   // admin looks people up by email
+
+      // Self-registration can only ever produce a plain citizen.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'fullName', 'role', 'departmentId', 'createdAt'])
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.role == 'citizen'
+        && request.resource.data.departmentId == null
+        && (request.resource.data.fullName == null
+            || (request.resource.data.fullName is string && request.resource.data.fullName.size() <= 100))
+        && request.resource.data.createdAt == request.time;
+
+      // Only admins change roles / departments. A field worker must have a department.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'departmentId'])
+        && request.resource.data.role in ['citizen', 'field_worker', 'admin']
+        && (request.resource.data.role != 'field_worker'
+            || (request.resource.data.departmentId is string && departmentExists(request.resource.data.departmentId)))
+        && (request.resource.data.role == 'field_worker' || request.resource.data.departmentId == null);
+
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------- departments
+    match /departments/{id} {
+      allow read: if signedIn();   // boundaries are needed in the browser for routing
+      allow write: if isAdmin();
+    }
+
+    // ------------------------------------------------------------ reports
+    match /reports/{id} {
+      allow get, list: if signedIn() && (
+        resource.data.userId == request.auth.uid
+        || isAdmin()
+        || (isFieldWorker() && resource.data.assignedDepartmentId == myDepartment()));
+
+      allow create: if hasProfile()
+        && (isAdmin() || profile().role == 'citizen')
+        && request.resource.data.keys().hasOnly(['userId', 'title', 'description', 'category', 'status',
+             'lat', 'lng', 'assignedDepartmentId', 'assignedDepartmentName', 'routingMethod',
+             'hasImage', 'createdAt', 'updatedAt'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.category in ['pothole', 'garbage_dumping', 'broken_street_light', 'drainage_block']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 5 && request.resource.data.description.size() <= 2000
+        && request.resource.data.lat is number && request.resource.data.lat >= 5.7 && request.resource.data.lat <= 10.0
+        && request.resource.data.lng is number && request.resource.data.lng >= 79.4 && request.resource.data.lng <= 82.0
+        && request.resource.data.routingMethod in ['polygon', 'nearest', 'unrouted']
+        && (request.resource.data.assignedDepartmentId == null
+            || departmentExists(request.resource.data.assignedDepartmentId))
+        && request.resource.data.hasImage is bool
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if (
+          // Field workers: change status on their own department's reports only.
+          (isFieldWorker()
+            && resource.data.assignedDepartmentId == myDepartment()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
+          // Admins: change status and/or reassign.
+          || (isAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'updatedAt', 'assignedDepartmentId', 'assignedDepartmentName', 'routingMethod'])
+            && request.resource.data.routingMethod in ['polygon', 'nearest', 'unrouted', 'manual']
+            && (request.resource.data.assignedDepartmentId == null
+                || departmentExists(request.resource.data.assignedDepartmentId)))
+        )
+        && validStatus(request.resource.data.status)
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    // ------------------------------------------- report photos (separate doc)
+    match /reportImages/{id} {
+      allow get: if signedIn() && (
+        resource.data.userId == request.auth.uid
+        || isAdmin()
+        || (isFieldWorker()
+            && get(/databases/$(database)/documents/reports/$(id)).data.assignedDepartmentId == myDepartment()));
+
+      // Created in the same batch as its report; getAfter() sees that report.
+      allow create: if hasProfile()
+        && request.resource.data.keys().hasOnly(['userId', 'dataUrl', 'createdAt'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.dataUrl is string
+        && request.resource.data.dataUrl.size() < 900000
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/reports/$(id)).data.userId == request.auth.uid;
+
+      allow update, delete: if false;
+    }
+
+    // ------------------------------------------------------ notifications
+    match /notifications/{id} {
+      allow get, list: if signedIn() && resource.data.userId == request.auth.uid;
+
+      // You can notify yourself (report received); staff can notify a reporter (status change).
+      allow create: if hasProfile()
+        && request.resource.data.keys().hasOnly(['userId', 'reportId', 'message', 'read', 'createdAt'])
+        && request.resource.data.message is string && request.resource.data.message.size() <= 300
+        && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time
+        && (request.resource.data.userId == request.auth.uid || isStaff());
+
+      allow update: if signedIn() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+
+      allow delete: if false;
+    }
+  }
+}
