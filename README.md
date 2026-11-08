@@ -1,64 +1,79 @@
-/// Project setup and deployment guide for Ape Para.
-# Ape Para
+# Ape Para (අපේ පාර)
 
-Ape Para is a mobile-first civic reporting platform for Sri Lanka that lets citizens submit photo, location, and issue details and route reports to the appropriate authority.
+A civic reporting web app for Sri Lanka. Citizens report potholes, garbage dumping, broken street lights and drainage blocks with a photo and a map pin; the backend routes each report to the right authority (Municipal Council, CEB, Water Board) by category and GPS location.
 
-## Firebase setup in 6 steps
+Stack: Node.js + Express, PostgreSQL + PostGIS, React + Tailwind.
 
-1. Create a Firebase project.
-2. Enable Email/Password in Authentication.
-3. Create Firestore Database and apply `firestore.rules`.
-4. Enable Firebase Storage and apply `storage.rules`.
-5. Run `flutterfire configure` locally and generate Firebase web configuration values.
-6. Deploy the rules and indexes with Firebase CLI when your project is ready.
+```
+Ape-Para/
+├── database/
+│   ├── schema.sql            # enums, users, departments, reports, notifications, indexes, trigger
+│   └── seed.sql              # 3 sample departments (Colombo pilot polygons — placeholders)
+├── backend/                  # Node.js + Express REST API
+│   ├── src/
+│   │   ├── app.js  server.js  config.js  db.js
+│   │   ├── middleware/       # auth.js (JWT + RBAC), upload.js (multer + magic-byte check), error.js
+│   │   ├── services/         # routing.js (automated routing), notifications.js
+│   │   └── routes/           # auth, reports, departments, notifications, users
+│   └── scripts/              # migrate.js, create-admin.js
+├── frontend/                 # React 18 + Vite + Tailwind + Leaflet
+│   └── src/
+│       ├── context/AuthContext.jsx      # JWT state
+│       ├── lib/                         # api client, constants
+│       ├── components/                  # Layout, MapPicker, ReportsMap, NotificationBell, ...
+│       └── pages/                       # Login, Register, Dashboard, NewReport
+└── docker-compose.yml        # postgis/postgis for local dev
+```
 
 ## Run locally
 
-```powershell
-flutter pub get
-Copy-Item dart_defines.example.json dart_defines.json
-flutter run -d chrome --dart-define-from-file=dart_defines.json
+```bash
+docker compose up -d db                       # or use any PostgreSQL 14+ with PostGIS 3
+cd backend
+cp .env.example .env                          # set JWT_SECRET (see comment in file)
+npm install
+npm run migrate                               # applies schema.sql + seed.sql (idempotent)
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='a-long-password' npm run create-admin
+npm run dev                                   # http://localhost:4000
+
+cd ../frontend
+npm install
+npm run dev                                   # http://localhost:5173 (proxies /api and /uploads)
 ```
 
-Fill all seven Firebase values in `dart_defines.json`. This file is ignored by Git.
+## API
 
-## Deploy to GitHub Pages
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/api/auth/register` | public | Always creates a **citizen** |
+| POST | `/api/auth/login` | public | Returns `{ token, user }` |
+| GET | `/api/auth/me` | any | |
+| POST | `/api/reports` | citizen, admin | `multipart/form-data`: title, description, category, lat, lng, image? — **triggers automated routing** |
+| GET | `/api/reports` | any | Scoped: citizen → own, field worker → own department, admin → all. `?status=&category=&limit=&offset=` |
+| GET | `/api/reports/:id` | any | Same scoping |
+| PATCH | `/api/reports/:id/status` | field_worker (own dept), admin | Notifies the reporter |
+| PATCH | `/api/reports/:id/department` | admin | Manual reassignment / triage |
+| GET | `/api/departments` | public | No polygons |
+| GET | `/api/departments/resolve?lat&lng&category` | public | Routing preview used by the form |
+| GET / POST | `/api/notifications`, `/api/notifications/read` | any | |
+| POST | `/api/users/staff` | admin | Create field workers / admins |
 
-1. Create a GitHub repository and push the project to `main`.
-2. Add all seven Firebase values under Repository Settings > Secrets and variables > Actions.
-3. Enable GitHub Pages with Source: GitHub Actions.
-4. Confirm the workflow base-href uses `/<repository-name>/`.
-5. Push to `main` to build and publish the static site.
+## How automated routing works (`backend/src/services/routing.js`)
 
-## What this costs
+1. **Category rule** → authority type: pothole & garbage → `municipal`, street light → `ceb`, drainage → `water_board`.
+2. **Spatial rule** → among departments of that type, `ST_Covers(region_polygon, point)`; if regions overlap, the smallest wins.
+3. **Fallback** → nearest department of that type within `ROUTING_FALLBACK_KM` (default 50 km), recorded as `routing_method = 'nearest'`.
+4. **Otherwise** → left unrouted (`assigned_department_id IS NULL`) for an admin to assign.
 
-| Firebase resource | Pilot budget | Firebase Spark allowance |
-|---|---:|---:|
-| Firestore reads/writes | Suitable for about 1,000 reports/month | 50,000 reads and 20,000 writes per day |
-| Storage | 5 to 10 GB available free | 5 GB stored |
-| Storage downloads | Usually under 1 GB/month at pilot scale | 1 GB/day |
-| Authentication | Included in Spark pilot usage | No monthly user-charge |
-| Hosting | GitHub Pages | LKR 0 |
+`routing_method` (`polygon` / `nearest` / `manual` / `unrouted`) is stored on each report so you can audit and improve boundaries.
 
-Total expected pilot cost: **LKR 0**.
+## Things to know before production
 
-## Known limitations
-
-- The Spark plan has no Cloud Functions, so reports are not emailed automatically. Officers copy dispatch details from the dashboard.
-- Push notifications are not implemented.
-- Jurisdiction routing is performed in the browser and depends on the approximate seeded polygons.
-- Officer role checks require one profile read per dashboard session.
-- CanvasKit uses roughly 2 MB or more on first load.
-- The public OpenStreetMap tile service may be unavailable or slow and the map degrades to a loading/error state.
-
-## Build flags
-
-CanvasKit is used for consistent Sinhala rendering across Chrome, Safari, and Firefox. HTML renderer text shaping can be inconsistent. The trade-off is a larger initial application download.
-
-## Boundaries
-
-The four jurisdiction polygons in `lib/services/jurisdictions.dart` are approximate placeholders. Supply vetted boundaries before production routing.
-
-## Assets
-
-`.nojekyll` prevents GitHub Pages from stripping Flutter asset directories such as `assets/` and `canvaskit/`.
+- **Boundaries are placeholders.** `seed.sql` reuses the four approximate rectangles from `lib/services/jurisdictions.dart` (three fit the `municipal | ceb | water_board` types; the RDA one does not). Load real divisional/CEB/NWSDB boundaries (e.g. from shapefiles via `shp2pgsql` or `ogr2ogr`) before relying on routing.
+- **Drainage → Water Board** is an assumption. In many areas storm drains belong to the Municipal Council; change `CATEGORY_TO_DEPARTMENT_TYPE` if so.
+- **Image storage** is local disk (`UPLOAD_DIR`). On PaaS/ephemeral hosts, swap `middleware/upload.js` for S3/Cloud Storage.
+- **JWT is kept in `localStorage`** (simple, but readable by any XSS). For higher assurance, move to an httpOnly, SameSite cookie.
+- **Email/SMS** to departments is not implemented; notifications are in-app only (polled every 60 s).
+- The map is keyboard-inaccessible by nature, so the form also offers latitude/longitude fields and "Use my location".
+- Tiles use the public OpenStreetMap server, which has a usage policy; use a tile provider for real traffic.
+- Run behind HTTPS and set `CORS_ORIGIN` to your real frontend origin(s).

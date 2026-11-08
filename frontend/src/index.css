@@ -1,0 +1,28 @@
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-cream-50 text-ink-900 antialiased; }
+  /* Strong, consistent keyboard focus ring for accessibility */
+  :focus-visible { outline: 3px solid #00746d; outline-offset: 2px; border-radius: 4px; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 py-2 text-base font-semibold
+           transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary { @apply bg-maroon-700 text-white hover:bg-maroon-800; }
+  .btn-secondary { @apply border-2 border-maroon-700 bg-white text-maroon-700 hover:bg-maroon-50; }
+  .input {
+    @apply block min-h-[44px] w-full rounded-lg border border-cream-200 bg-white px-3 py-2 text-base text-ink-900
+           shadow-sm placeholder:text-ink-700/50 focus:border-lanka-600;
+  }
+  .label { @apply mb-1 block text-sm font-semibold text-ink-700; }
+  .card { @apply rounded-2xl border border-cream-200 bg-white p-5 shadow-sm; }
+}
+
+/* Leaflet tweaks */
+.leaflet-container { font-family: inherit; }
