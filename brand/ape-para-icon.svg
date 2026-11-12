@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Ape Para icon"><title>Ape Para icon</title><rect width="1024" height="1024" rx="225" fill="#8d153a"/><g transform="translate(512.0,711.5) scale(0.86)"><clipPath id="upi"><rect x="-520" y="-520" width="1040" height="520"/></clipPath>
+<g clip-path="url(#upi)">
+<path d="M -470.00 0 A 470.00 470.00 0 0 1 470.00 0 Z" fill="#ffbe29"/>
+<path d="M -410.00 0 A 410.00 410.00 0 0 1 410.00 0 Z" fill="#8d153a"/>
+<path d="M -382.00 0 A 382.00 382.00 0 0 1 382.00 0 Z" fill="#fff0bf"/>
+<path d="M -356.00 0 A 356.00 356.00 0 0 1 356.00 0 Z" fill="#00534e"/>
+<path d="M -120 0 L -8 -232 L 8 -232 L 120 0 Z" fill="#fff0bf"/>
+<path d="M -11.44 -11.60 L -9.54 -51.04 L 9.54 -51.04 L 11.44 -11.60 Z" fill="#8d153a"/>
+<path d="M -8.19 -78.88 L -6.85 -106.72 L 6.85 -106.72 L 8.19 -78.88 Z" fill="#8d153a"/>
+<path d="M -5.50 -134.56 L -4.50 -155.44 L 4.50 -155.44 L 5.50 -134.56 Z" fill="#8d153a"/>
+<path d="M -3.38 -178.64 L -2.70 -192.56 L 2.70 -192.56 L 3.38 -178.64 Z" fill="#8d153a"/>
+<circle cx="0" cy="-298.50" r="38" fill="#ffbe29"/>
+<path d="M -31.18 -276.79 L 0 -232 L 31.18 -276.79 Z" fill="#ffbe29"/>
+<circle cx="0" cy="-298.50" r="15.96" fill="#00534e"/>
+</g>
+<rect x="-470" y="0" width="940" height="24" rx="12" fill="#ffbe29"/></g></svg>

@@ -52,6 +52,9 @@ These Firebase config values are not secrets; the security rules protect the dat
 
 To create field workers: they register normally, then in **Admin → Staff access** find them by email and set role *Field worker* + department.
 
+## Branding
+The logo is a moonstone (sandakada pahana) with a road leading to a map pin; the wordmark is set in Abhaya Libre ExtraBold. Vector sources and usage notes are in [`brand/`](brand/BRAND.txt). The app's copies live in `frontend/public/` (`logo.svg`, `logo-header.svg`, favicons and home-screen icons).
+
 ## Roles
 | Role | Can do |
 |---|---|

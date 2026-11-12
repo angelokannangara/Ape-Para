@@ -1,0 +1,35 @@
+APE PARA (අපේ පාර) - LOGO PACK
+==============================
+
+FILES (this folder = vector sources)
+  ape-para-logo.svg             transparent, for light backgrounds
+  ape-para-logo-on-maroon.svg   on deep maroon, for dark backgrounds / social profile
+  ape-para-logo-horizontal.svg  for wide spaces such as headers (with tagline)
+  ape-para-icon.svg             app icon / favicon
+  Text is converted to outlines, so no fonts are needed to use these files.
+  The app's own copies (compact header lockup, PNG icons, favicon.ico) are in frontend/public/.
+
+CONCEPT
+  A moonstone (sandakada pahana): the carved semicircular stone laid at the threshold of ancient Sri Lankan
+  buildings. Here the lotus-petal ring and the row of dots echo its carved bands. At its centre a road runs
+  to a map pin: the doorway to getting your road fixed. It is inspired by the moonstone tradition, not a copy
+  of any specific stone.
+
+COLOURS
+  Maroon        #8D153A   (primary)
+  Deep maroon   #560D25   (dark backgrounds)
+  Saffron       #FFBE29   (accent)
+  Pale gold     #FFF0BF   (petals, road)
+  Deep green    #00534E   (field)
+  Ink           #3D3330   (tagline text)
+
+FONTS (both SIL Open Font License, free for commercial use)
+  Wordmark  Abhaya Libre ExtraBold  (designed in Sri Lanka by Pushpananda Ekanayake)
+  Tagline   Poppins Medium, uppercase, letter-spaced
+
+TAGLINE  REPORT IT · ROUTE IT · FIX IT
+
+USAGE
+  - Keep clear space around the logo equal to the height of the pin.
+  - Don't stretch, recolour the rings, or place the light version on busy photos.
+  - Minimum size: emblem 48 px wide; icon 32 px.

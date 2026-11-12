@@ -24,6 +24,7 @@ export default function Register() {
 
   return (
     <div className="mx-auto max-w-md">
+      <img src="/logo.svg" alt="Ape Para · අපේ පාර" className="mx-auto mb-6 w-44 sm:w-56" />
       <div className="card">
         <h1 className="text-2xl font-extrabold text-maroon-800">Join Ape Para</h1>
         <p className="mb-5 text-ink-700">Help keep your neighbourhood safe and in good repair.</p>

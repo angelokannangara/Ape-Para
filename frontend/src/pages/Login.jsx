@@ -23,6 +23,7 @@ export default function Login() {
 
   return (
     <div className="mx-auto max-w-md">
+      <img src="/logo.svg" alt="Ape Para · අපේ පාර" className="mx-auto mb-6 w-44 sm:w-56" />
       <div className="card">
         <h1 className="text-2xl font-extrabold text-maroon-800">Welcome back</h1>
         <p className="mb-5 text-ink-700">Log in to report issues and track their progress.</p>

@@ -4,12 +4,8 @@ import NotificationBell from './NotificationBell.jsx';
 
 function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-3">
-      <span aria-hidden="true" className="flex h-11 w-11 items-center justify-center rounded-xl bg-saffron-400 text-2xl">📍</span>
-      <span className="leading-tight">
-        <span className="block text-xl font-extrabold tracking-tight">Ape Para</span>
-        <span className="block text-sm text-saffron-300">අපේ පාර · Our Road</span>
-      </span>
+    <Link to="/" className="flex items-center">
+      <img src="/logo-header.svg" alt="Ape Para (අපේ පාර)" className="h-12 w-auto sm:h-14" />
     </Link>
   );
 }
