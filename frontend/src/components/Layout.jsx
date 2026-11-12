@@ -55,9 +55,23 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-cream-200 bg-cream-100 py-4 text-center text-sm text-ink-700">
-        Ape Para · Helping every community keep Sri Lanka's roads, lights and drains in good repair.
-      </footer>
+      <footer className="border-t border-cream-200 bg-cream-100 py-6 text-center text-sm text-ink-700">
+  <p>Ape Para · Helping every community keep Sri Lanka's roads, lights and drains in good repair.</p>
+  <a
+    href="https://builtlist.space/products/ape-para-v20?utm_source=badge&utm_medium=embed&utm_campaign=listed"
+    target="_blank"
+    rel="noopener"
+    className="mt-4 inline-block"
+  >
+    <img
+      src="https://builtlist.space/badges/listed-dark.png"
+      width="250"
+      height="68"
+      alt="Listed on BuiltList"
+      loading="lazy"
+    />
+  </a>
+</footer>
     </div>
   );
 }
